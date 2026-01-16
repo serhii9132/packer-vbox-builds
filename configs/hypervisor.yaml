@@ -1,0 +1,38 @@
+system_settings:
+  cpus: 4
+  memory: 4096
+  disk_size: 150000
+  gfx_vram_size: 16
+  firmware_type: "efi"
+  export_format: "ova"
+  http_directory: "http"
+  communicator: "ssh"
+  timezone: "Europe/Kyiv"
+
+vboxmanage_commands:
+  - [ "modifyvm", "{{.Name}}", "--audio", "none" ]
+  - [ "modifyvm", "{{.Name}}", "--vrde", "off" ]
+
+iso_config:
+  interface: "sata"
+  source: ".cache/iso" 
+
+disk_config:
+  interface: "sata"
+  is_discard: false
+  is_nonrotational: false
+
+guest_additions:
+  mode: "upload"
+  path: "/tmp/VBoxGuestAdditions.iso"
+
+ssh_config:
+  username: ""
+  password: ""
+  private_key_file: ""
+  pub_key: ""
+  timeout: "30m"
+
+boot_control:
+  boot_wait: "5s"
+  shutdown_command: "sudo shutdown -P now"

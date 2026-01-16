@@ -1,0 +1,107 @@
+packer {
+  required_plugins {
+    virtualbox = {
+      source  = "github.com/hashicorp/virtualbox"
+      version = "~> 1"
+    }
+    vagrant = {
+      source  = "github.com/hashicorp/vagrant"
+      version = "~> 1"
+    }
+  }
+}
+
+locals {
+  output_directory = "artifacts/{{ packer_builder_name }}/builds/${formatdate("YYYY-MM-DD_hh-mm", timestamp())}"
+}
+
+source "virtualbox-iso" "{{ packer_builder_name }}" {
+  guest_os_type            = "{{ vbox_guest_os_type }}"
+  vm_name                  = "{{ vm_name }}"
+  firmware                 = "{{ system_settings.firmware_type }}"
+  format                   = "{{ system_settings.export_format }}"
+  
+  cpus                     = {{ system_settings.cpus }}
+  memory                   = {{ system_settings.memory }}
+  disk_size                = {{ system_settings.disk_size }}
+  gfx_vram_size            = {{ system_settings.gfx_vram_size }}
+  
+  guest_additions_mode     = "{{ guest_additions.mode }}"
+  guest_additions_path     = "{{ guest_additions.path }}"
+
+  communicator             = "{{ system_settings.communicator }}"
+
+  hard_drive_interface     = "{{ disk_config.interface }}"
+  hard_drive_discard       = {{ disk_config.is_discard | lower }}
+  hard_drive_nonrotational = {{ disk_config.is_nonrotational | lower }}
+
+  ssh_username             = "{{ ssh_config.username }}"
+  ssh_timeout              = "{{ ssh_config.timeout }}"
+  ssh_private_key_file     = "{{ ssh_config.private_key_file }}"
+
+  iso_interface            = "{{ iso_config.interface }}"
+  iso_url                  = "{{ iso_config.url }}/{{ iso_config.file }}"
+  iso_checksum             = "{{ iso_config.checksum }}"
+  iso_target_path          = "{{ iso_config.source }}/{{ iso_config.file }}"
+
+  output_directory         = local.output_directory
+  
+  http_directory           = "artifacts/{{ packer_builder_name }}/{{ system_settings.http_directory }}"
+
+  boot_wait                = "{{ boot_control.boot_wait }}"
+  boot_command = [
+    {%- for line in boot_command %}
+    "{{ line | replace('"', '\\"') }}"{% if not loop.last %},{% endif -%}
+    {% endfor -%}
+  ]
+  shutdown_command        = "{{ boot_control.shutdown_command }}"
+
+  {% if vboxmanage_commands -%}
+  vboxmanage = [
+    {% for command in vboxmanage_commands -%}
+    {% set inner_list = [] -%} 
+    {% for item in command -%}
+      {%- set _ = inner_list.append('"' + item + '"') -%}
+    {% endfor -%}
+    [ {{ inner_list | join(', ') }} ]{%- if not loop.last %},{% endif %}
+    {% endfor -%}
+  ]
+  {%- endif %}
+}
+
+build {
+  sources = ["sources.virtualbox-iso.{{ packer_builder_name }}"]
+
+  provisioner "file" {
+    source = ".provision/files/regenerate_ssh_host_keys.service"
+    destination = "/tmp/regenerate_ssh_host_keys.service"
+  }
+
+  provisioner "shell" {
+    scripts = [
+      "provision/scripts/install-vbox-guest-add.sh",
+      "provision/scripts/regenerate_ssh_host_keys.sh",
+      "provision/scripts/cleanup.sh",
+      "provision/scripts/zero_space.sh"
+    ]
+
+  {%- if ssh_config.username == "root" %}
+    environment_vars = [
+      "ISO_PATH={{ guest_additions.path }}",
+      "SUDO_USER={{ ssh_config.username }}"
+    ]
+    execute_command = "{% raw %}{{ .Vars }}{% endraw %} sudo -E {% raw %}{{ .Path }}{% endraw %}"
+  {%- else %}
+    environment_vars = [
+      "ISO_PATH={{ guest_additions.path }}"
+    ]
+    execute_command = "{% raw %}{{ .Vars }} {{ .Path }}{% endraw %}"
+  {%- endif %}
+  }
+
+  post-processor "vagrant" {
+    compression_level    = 6
+    keep_input_artifact  = true
+    output               = "${local.output_directory}/{{ vm_name }}.box"
+  }
+}
