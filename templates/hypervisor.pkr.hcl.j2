@@ -16,14 +16,13 @@ locals {
 }
 
 source "virtualbox-iso" "{{ packer_builder_name }}" {
-  guest_os_type            = "{{ vbox_guest_os_type }}"
+  guest_os_type            = "{{ guest_os_type }}"
   vm_name                  = "{{ vm_name }}"
   firmware                 = "{{ system_settings.firmware_type }}"
   format                   = "{{ system_settings.export_format }}"
   
   cpus                     = {{ system_settings.cpus }}
   memory                   = {{ system_settings.memory }}
-  disk_size                = {{ system_settings.disk_size }}
   gfx_vram_size            = {{ system_settings.gfx_vram_size }}
   
   guest_additions_mode     = "{{ guest_additions.mode }}"
@@ -31,6 +30,7 @@ source "virtualbox-iso" "{{ packer_builder_name }}" {
 
   communicator             = "{{ system_settings.communicator }}"
 
+  disk_size                = {{ disk_config.size }}
   hard_drive_interface     = "{{ disk_config.interface }}"
   hard_drive_discard       = {{ disk_config.is_discard | lower }}
   hard_drive_nonrotational = {{ disk_config.is_nonrotational | lower }}
@@ -46,7 +46,7 @@ source "virtualbox-iso" "{{ packer_builder_name }}" {
 
   output_directory         = local.output_directory
   
-  http_directory           = "artifacts/{{ packer_builder_name }}/{{ system_settings.http_directory }}"
+  http_directory           = "artifacts/{{ packer_builder_name }}/{{ installer }}"
 
   boot_wait                = "{{ boot_control.boot_wait }}"
   boot_command = [
@@ -73,19 +73,19 @@ build {
   sources = ["sources.virtualbox-iso.{{ packer_builder_name }}"]
 
   provisioner "file" {
-    source = ".provision/files/regenerate_ssh_host_keys.service"
+    source = "./provision/files/regenerate_ssh_host_keys.service"
     destination = "/tmp/regenerate_ssh_host_keys.service"
   }
 
   provisioner "shell" {
     scripts = [
-      "provision/scripts/install-vbox-guest-add.sh",
-      "provision/scripts/regenerate_ssh_host_keys.sh",
-      "provision/scripts/cleanup.sh",
-      "provision/scripts/zero_space.sh"
+      "./provision/scripts/install_vbox_guest_additions.sh",
+      "./provision/scripts/regenerate_ssh_host_keys.sh",
+      "./provision/scripts/cleanup.sh",
+      "./provision/scripts/zero_space.sh"
     ]
 
-  {%- if ssh_config.username == "root" %}
+  {%- if ssh_config.username != "root" %}
     environment_vars = [
       "ISO_PATH={{ guest_additions.path }}",
       "SUDO_USER={{ ssh_config.username }}"

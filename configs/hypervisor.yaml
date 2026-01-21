@@ -1,11 +1,9 @@
 system_settings:
   cpus: 4
   memory: 4096
-  disk_size: 150000
   gfx_vram_size: 16
   firmware_type: "efi"
   export_format: "ova"
-  http_directory: "http"
   communicator: "ssh"
   timezone: "Europe/Kyiv"
 
@@ -18,6 +16,7 @@ iso_config:
   source: ".cache/iso" 
 
 disk_config:
+  size: 150000
   interface: "sata"
   is_discard: false
   is_nonrotational: false
