@@ -19,6 +19,3 @@ ubuntu: $(ENV_FILE)
 	@$(SETUP_LOGS) && \
 	export PACKER_LOG_PATH="$(LOG_DIR)/ubuntu_$(LOG_TIMESTAMP).log" && \
 	packer build $(ARTIFACTS_DIR)/ubuntu/ubuntu.pkr.hcl
-
-clean: $(VENV)
-	rm -rf $(VENV)
